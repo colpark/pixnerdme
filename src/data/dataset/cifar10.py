@@ -59,6 +59,35 @@ class PixCIFAR10(CIFAR10):
         return normalized_image, target, metadata
 
 
+class PixCIFAR10NoCrop(CIFAR10):
+    """
+    CIFAR-10 dataset without augmentation for clean evaluation.
+
+    Use this for validation to see non-augmented image generation.
+
+    Args:
+        root: Root directory where dataset exists or will be downloaded
+        train: If True, creates dataset from training set, otherwise test set
+        download: If True, downloads the dataset from the internet
+    """
+
+    def __init__(self, root, train=True, download=True):
+        super().__init__(root, train=train, download=download)
+        self.normalize = Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+
+    def __getitem__(self, idx: int):
+        image, target = super().__getitem__(idx)
+        raw_image = to_tensor(image)
+        normalized_image = self.normalize(raw_image)
+
+        metadata = {
+            "raw_image": raw_image,
+            "class": target,
+        }
+
+        return normalized_image, target, metadata
+
+
 class CIFAR10RandomNDataset(torch.utils.data.Dataset):
     """
     Random noise dataset for CIFAR-10 evaluation/prediction.

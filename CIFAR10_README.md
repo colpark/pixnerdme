@@ -171,6 +171,41 @@ Each `.npz` file contains:
 
 The visualization script shows how well the model is learning to generate CIFAR-10 classes (airplanes, cars, birds, cats, deer, dogs, frogs, horses, ships, trucks) at different training stages.
 
+### Why Generated Images Appear Translated/Cropped
+
+If you notice generated images appear slightly shifted or cropped (~4-5 pixels), this is **expected behavior** from data augmentation:
+
+**Cause**: The model was trained with `random_crop: true` which:
+1. Pads each 32×32 image by 4 pixels (→ 40×40)
+2. Randomly crops back to 32×32
+3. Applies random horizontal flip
+
+The model learned this **augmented distribution**, so generated images naturally include these translations.
+
+**This is normal** - most CIFAR-10 papers use this augmentation and it improves model performance.
+
+**Solutions**:
+
+**Option 1**: Apply center crop during visualization (removes ~4 pixels from edges):
+```bash
+# Center crop to 28x28 to remove edge artifacts
+python view_generated_images.py --step 19500 --center-crop --save clean_output.png
+```
+
+**Option 2**: Retrain without augmentation (if you need perfectly centered images):
+```yaml
+# Edit configs_c2i/cifar_basic_v1.yaml line 92:
+random_crop: false  # Disable augmentation
+
+# Then retrain from scratch
+bash cleanup_workdir.sh
+python main.py fit -c configs_c2i/cifar_basic_v1.yaml
+```
+
+**Trade-off**: No augmentation → cleaner images but potentially worse FID scores.
+
+**Option 3**: Accept the behavior (recommended) - this is standard practice and indicates correct learning.
+
 ## Expected Performance
 
 Training on CIFAR-10 is significantly faster than ImageNet:

@@ -21,12 +21,22 @@ def load_npz(npz_path):
     images = data['arr_0']  # Shape: [N, H, W, C]
     return images
 
-def visualize_grid(images, num_images=100, grid_size=10, save_path=None):
+def center_crop(image, crop_size=28):
+    """Center crop image to remove edge artifacts from random crop augmentation"""
+    h, w = image.shape[:2]
+    start_h = (h - crop_size) // 2
+    start_w = (w - crop_size) // 2
+    return image[start_h:start_h+crop_size, start_w:start_w+crop_size]
+
+def visualize_grid(images, num_images=100, grid_size=10, save_path=None, apply_center_crop=False):
     """Display images in a grid"""
     num_images = min(num_images, len(images))
 
     fig, axes = plt.subplots(grid_size, grid_size, figsize=(15, 15))
-    fig.suptitle(f'Generated CIFAR-10 Images (showing {num_images} samples)', fontsize=16)
+    title = f'Generated CIFAR-10 Images (showing {num_images} samples)'
+    if apply_center_crop:
+        title += ' - Center Cropped'
+    fig.suptitle(title, fontsize=16)
 
     for idx in range(grid_size * grid_size):
         row = idx // grid_size
@@ -35,6 +45,9 @@ def visualize_grid(images, num_images=100, grid_size=10, save_path=None):
 
         if idx < num_images:
             img = images[idx]
+            # Optionally apply center crop to remove translation artifacts
+            if apply_center_crop:
+                img = center_crop(img, crop_size=28)
             # Images are already uint8 [0, 255]
             ax.imshow(img)
         ax.axis('off')
@@ -97,6 +110,8 @@ def main():
                        help='Save visualization to file instead of displaying')
     parser.add_argument('--list', action='store_true',
                        help='List all available checkpoints')
+    parser.add_argument('--center-crop', action='store_true',
+                       help='Apply center crop (28x28) to remove translation artifacts from augmentation')
 
     args = parser.parse_args()
 
@@ -130,7 +145,7 @@ def main():
     print(f"Image range: [{images.min()}, {images.max()}]")
 
     # Visualize
-    visualize_grid(images, args.num_images, args.grid_size, args.save)
+    visualize_grid(images, args.num_images, args.grid_size, args.save, args.center_crop)
 
 if __name__ == '__main__':
     main()
