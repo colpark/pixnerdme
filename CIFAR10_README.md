@@ -116,6 +116,61 @@ Training progress is logged to Weights & Biases:
 
 Validation images are saved to `./workdirs/cifar10_basic_pixnerd_base/val/`
 
+## Visualizing Generated Images
+
+Every 50 epochs (~19,500 steps), the model generates validation images saved as `.npz` files:
+
+```
+./workdirs/exp_cifar10_basic_pixnerd_base/val/
+├── iter_19500/
+│   └── output.npz  # First validation (50 epochs)
+├── iter_39000/
+│   └── output.npz  # Second validation (100 epochs)
+├── iter_58500/
+│   └── output.npz  # Third validation (150 epochs)
+└── ...
+```
+
+### Quick Visualization
+
+```bash
+# List all available checkpoints
+python view_generated_images.py --list
+
+# View latest generated images (10x10 grid)
+python view_generated_images.py
+
+# View specific checkpoint
+python view_generated_images.py --step 19500
+
+# Save visualization to file instead of displaying
+python view_generated_images.py --step 39000 --save progress_step39000.png
+
+# Show more images (15x15 grid = 225 images)
+python view_generated_images.py --num-images 225 --grid-size 15
+```
+
+### On Cluster
+
+Since the cluster may not have display capabilities, save visualizations to PNG:
+
+```bash
+# On cluster - save to file
+python view_generated_images.py --step 19500 --save validation_19500.png
+
+# Then download to local machine
+scp your-cluster:/pscratch/sd/d/dpark1/Claude/PixNerd/validation_19500.png .
+```
+
+### Understanding the Output
+
+Each `.npz` file contains:
+- **10,000 generated images** (1,000 per class)
+- **Image format**: 32×32 RGB, uint8 [0, 255]
+- **File size**: ~30-40 MB per checkpoint
+
+The visualization script shows how well the model is learning to generate CIFAR-10 classes (airplanes, cars, birds, cats, deer, dogs, frogs, horses, ships, trucks) at different training stages.
+
 ## Expected Performance
 
 Training on CIFAR-10 is significantly faster than ImageNet:
@@ -216,10 +271,20 @@ PixNerd/
 │   └── data/
 │       └── dataset/
 │           └── cifar10.py           # CIFAR-10 dataset implementation
+├── test_cifar10.py                  # Validation script
+├── view_generated_images.py         # Visualization tool for .npz files
+├── cleanup_workdir.sh               # Cleanup script for experiment dirs
 ├── data/
 │   └── cifar10/                     # Auto-downloaded CIFAR-10 data
 └── workdirs/
-    └── cifar10_basic_pixnerd_base/  # Checkpoints and logs
+    └── exp_cifar10_basic_pixnerd_base/  # Checkpoints and logs
+        ├── checkpoints/             # Model checkpoints (every 5K steps)
+        └── val/                     # Validation images (.npz files)
+            ├── iter_19500/
+            │   └── output.npz
+            ├── iter_39000/
+            │   └── output.npz
+            └── ...
 ```
 
 ## Troubleshooting
