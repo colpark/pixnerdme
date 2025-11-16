@@ -85,6 +85,9 @@ python test_cifar10.py
 cd /pscratch/sd/d/dpark1/Claude/pixnerdme
 source venv/bin/activate
 
+# Clean previous runs (if restarting)
+bash cleanup_workdir.sh
+
 # Single GPU
 python main.py fit -c configs_c2i/cifar_basic_v1.yaml
 
@@ -123,6 +126,9 @@ source venv/bin/activate
 # Create logs directory
 mkdir -p logs
 
+# Clean previous runs (optional - remove if resuming)
+bash cleanup_workdir.sh
+
 # Run training - use config defaults (devices=auto detects 1 GPU)
 python main.py fit -c configs_c2i/cifar_basic_v1.yaml
 
@@ -155,6 +161,9 @@ source venv/bin/activate
 
 # Create logs directory
 mkdir -p logs
+
+# Clean previous runs (optional - remove if resuming)
+bash cleanup_workdir.sh
 
 # Run training with SLURM launcher
 # Lightning auto-detects SLURM and uses correct number of devices

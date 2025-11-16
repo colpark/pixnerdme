@@ -68,6 +68,9 @@ This fork includes CIFAR-10 dataset support with optimized model architecture fo
 
 **Quick Start:**
 ```bash
+# Clean any previous runs (if needed)
+bash cleanup_workdir.sh
+
 # Train on CIFAR-10 (dataset auto-downloads)
 python main.py fit -c configs_c2i/cifar_basic_v1.yaml
 

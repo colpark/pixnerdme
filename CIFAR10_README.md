@@ -224,6 +224,39 @@ PixNerd/
 
 ## Troubleshooting
 
+### Experiment Directory Already Exists
+
+**Error**: `FileExistsError: ./workdirs/exp_cifar10_basic_pixnerd_base already exists`
+
+**Cause**: Safety check prevents overwriting previous experiments.
+
+**Solutions**:
+
+**Option 1 - Clean Start (Recommended)**:
+```bash
+# Use cleanup script
+bash cleanup_workdir.sh
+
+# Or manually remove
+rm -rf ./workdirs/exp_cifar10_basic_pixnerd_base
+
+# Then train
+python main.py fit -c configs_c2i/cifar_basic_v1.yaml
+```
+
+**Option 2 - Resume Training**:
+```bash
+# Continue from last checkpoint
+python main.py fit -c configs_c2i/cifar_basic_v1.yaml \
+    --ckpt_path ./workdirs/exp_cifar10_basic_pixnerd_base/checkpoints/last.ckpt
+```
+
+**Option 3 - Change Experiment Name**:
+Edit `configs_c2i/cifar_basic_v1.yaml` and change line 5:
+```yaml
+exp: &exp cifar10_basic_pixnerd_v2  # Add version number
+```
+
 ### Out of Memory
 
 Reduce batch size in config:
