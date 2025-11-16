@@ -89,7 +89,7 @@ data:
       root: ./data/cifar10  # CIFAR-10 will be downloaded here
       train: true
       download: true
-      random_crop: true  # Enable data augmentation
+      random_crop: false  # Disabled by default - generates centered images without translation artifacts
   eval_dataset:
     class_path: src.data.dataset.cifar10.CIFAR10RandomNDataset
     init_args:

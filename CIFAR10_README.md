@@ -52,12 +52,14 @@ The configuration file `configs_c2i/cifar_basic_v1.yaml` includes:
 - **Diffusion Trainer**: FlowMatchingTrainer (basic flow matching without auxiliary encoder)
 - **Training**: 200,000 steps with validation every 50 epochs (~19,500 steps)
 - **Optimizer**: AdamW with lr=1e-4
-- **Augmentation**: Random crop with padding + random horizontal flip
+- **Augmentation**: Disabled by default (`random_crop: false`) - generates centered images without translation artifacts
 - **Checkpoints**: Saved every 5,000 steps to `./workdirs/`
 
 **Note**: With 50K training images and batch size 128, each epoch is ~390 steps. Validation runs every 50 epochs for efficiency.
 
 **Note**: This uses basic flow matching. For REPA training with DINOv2 auxiliary encoder (better quality but requires additional setup), see the Advanced Training section below.
+
+**Optional**: To enable data augmentation (random crop + horizontal flip) for potentially better FID scores, set `random_crop: true` in the config. This will cause generated images to have ~5 pixel translations, which is normal behavior.
 
 ## Inference
 
@@ -171,40 +173,31 @@ Each `.npz` file contains:
 
 The visualization script shows how well the model is learning to generate CIFAR-10 classes (airplanes, cars, birds, cats, deer, dogs, frogs, horses, ships, trucks) at different training stages.
 
-### Why Generated Images Appear Translated/Cropped
+### Data Augmentation (Optional)
 
-If you notice generated images appear slightly shifted or cropped (~4-5 pixels), this is **expected behavior** from data augmentation:
+By default, `random_crop: false` in the config, which generates **centered, non-translated images**.
 
-**Cause**: The model was trained with `random_crop: true` which:
-1. Pads each 32×32 image by 4 pixels (→ 40×40)
-2. Randomly crops back to 32×32
-3. Applies random horizontal flip
+If you want to enable data augmentation for potentially better FID scores:
 
-The model learned this **augmented distribution**, so generated images naturally include these translations.
-
-**This is normal** - most CIFAR-10 papers use this augmentation and it improves model performance.
-
-**Solutions**:
-
-**Option 1**: Apply center crop during visualization (removes ~4 pixels from edges):
-```bash
-# Center crop to 28x28 to remove edge artifacts
-python view_generated_images.py --step 19500 --center-crop --save clean_output.png
-```
-
-**Option 2**: Retrain without augmentation (if you need perfectly centered images):
 ```yaml
 # Edit configs_c2i/cifar_basic_v1.yaml line 92:
-random_crop: false  # Disable augmentation
+random_crop: true  # Enable augmentation
 
 # Then retrain from scratch
 bash cleanup_workdir.sh
 python main.py fit -c configs_c2i/cifar_basic_v1.yaml
 ```
 
-**Trade-off**: No augmentation → cleaner images but potentially worse FID scores.
+**With `random_crop: true`**:
+- Images are padded by 4 pixels (→ 40×40) then randomly cropped back to 32×32
+- Random horizontal flip is applied
+- Generated images will have ~5 pixel translations (this is normal behavior)
+- Use `--center-crop` flag during visualization to remove edge artifacts:
+  ```bash
+  python view_generated_images.py --step 19500 --center-crop --save clean_output.png
+  ```
 
-**Option 3**: Accept the behavior (recommended) - this is standard practice and indicates correct learning.
+**Trade-off**: Augmentation can improve FID scores but generates translated images instead of perfectly centered ones.
 
 ## Expected Performance
 
