@@ -62,6 +62,28 @@ python main.py fit -c configs_c2i/pix256std1_repa_pixnerd_xl.yaml
 ```
 For T2i, we use GenEval and DPG to collect metrics.
 
+## CIFAR-10 Support
+
+This fork includes CIFAR-10 dataset support with optimized model architecture for 32×32 resolution.
+
+**Quick Start:**
+```bash
+# Train on CIFAR-10 (dataset auto-downloads)
+python main.py fit -c configs_c2i/cifar_repa_v1.yaml
+
+# Test setup
+python test_cifar10.py
+```
+
+**Model Configuration:**
+- Resolution: 32×32 (vs 256×256 for ImageNet)
+- Patch Size: 4 (vs 16 for ImageNet)
+- Hidden Size: 384 (vs 1152 for ImageNet-XL)
+- Blocks: 12 (vs 30 for ImageNet-XL)
+- Classes: 10 (vs 1000 for ImageNet)
+
+**Documentation:** See [CIFAR10_README.md](CIFAR10_README.md) for detailed instructions.
+
 ## Reference
 ```bibtex
 @article{2507.23268,
