@@ -61,9 +61,9 @@ class LightningModel(pl.LightningModule):
         # no_grad(self.diffusion_sampler)
         no_grad(self.ema_denoiser)
 
-        # torch.compile
-        self.denoiser.compile()
-        self.ema_denoiser.compile()
+        # torch.compile - DISABLED: causes errors with PyTorch 2.5 inductor
+        # self.denoiser.compile()
+        # self.ema_denoiser.compile()
 
     def configure_callbacks(self) -> Union[Sequence[Callback], Callback]:
         return [self.ema_tracker]

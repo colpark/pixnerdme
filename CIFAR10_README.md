@@ -248,6 +248,16 @@ If you get errors about missing encoder or DINOv2, make sure you're using `cifar
 
 If you get `val_check_interval should be an integer` errors, this is due to Lightning version compatibility. The config uses `check_val_every_n_epoch` (epoch-based validation) which is more stable across Lightning versions than step-based `val_check_interval`.
 
+### Torch Compile Errors
+
+**Error**: `TypeError: Invalid NaN comparison` or `BackendCompilerFailed: backend='inductor'`
+
+**Cause**: PyTorch 2.5 `torch.compile()` has compatibility issues with the model architecture.
+
+**Fix**: `torch.compile()` has been disabled in `src/lightning_model.py` (lines 65-66 commented out). Training will run without compilation (slightly slower but stable).
+
+**Note**: This doesn't significantly impact training speed for CIFAR-10's small 32×32 images.
+
 ## Citation
 
 If you use this CIFAR-10 extension, please cite the original PixNerd paper:
