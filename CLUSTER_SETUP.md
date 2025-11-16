@@ -23,7 +23,7 @@ git clone https://github.com/colpark/pixnerdme.git PixNerd
 cd PixNerd
 
 # Verify files are present
-ls configs_c2i/cifar_repa_v1.yaml
+ls configs_c2i/cifar_basic_v1.yaml
 ls src/data/dataset/cifar10.py
 ```
 
@@ -68,7 +68,7 @@ pip install -r requirements.txt
 
 ```bash
 # Test that config file exists
-ls -la configs_c2i/cifar_repa_v1.yaml
+ls -la configs_c2i/cifar_basic_v1.yaml
 
 # Test Python imports
 python -c "from src.data.dataset.cifar10 import PixCIFAR10; print('✓ CIFAR-10 dataset importable')"
@@ -82,25 +82,62 @@ python test_cifar10.py
 ### Interactive Training (for testing)
 
 ```bash
-cd /pscratch/sd/d/dpark1/Claude/PixNerd
+cd /pscratch/sd/d/dpark1/Claude/pixnerdme
 source venv/bin/activate
 
 # Single GPU
-python main.py fit -c configs_c2i/cifar_repa_v1.yaml
+python main.py fit -c configs_c2i/cifar_basic_v1.yaml
 
-# Multi-GPU (specify devices)
-python main.py fit -c configs_c2i/cifar_repa_v1.yaml --trainer.devices=4
+# Multi-GPU - Let Lightning auto-detect
+python main.py fit -c configs_c2i/cifar_basic_v1.yaml
 ```
 
 ### Batch Job Training (recommended)
 
-Create a SLURM job script `train_cifar10.sh`:
+**IMPORTANT**: For SLURM + Lightning, use `devices=auto` or `devices=1`. Don't manually specify device count.
+
+#### Option 1: Single GPU (Simplest)
+
+Create `train_cifar10_1gpu.sh`:
 
 ```bash
 #!/bin/bash
 #SBATCH --job-name=pixnerd_cifar10
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --gres=gpu:1
+#SBATCH --time=48:00:00
+#SBATCH --partition=gpu
+#SBATCH --output=logs/cifar10_%j.out
+#SBATCH --error=logs/cifar10_%j.err
+
+# Load modules (adjust for your cluster)
+module load python/3.10
+module load cuda/11.8
+
+# Activate environment
+cd /pscratch/sd/d/dpark1/Claude/pixnerdme
+source venv/bin/activate
+
+# Create logs directory
+mkdir -p logs
+
+# Run training - use config defaults (devices=auto detects 1 GPU)
+python main.py fit -c configs_c2i/cifar_basic_v1.yaml
+
+echo "Training completed at $(date)"
+```
+
+#### Option 2: Multi-GPU with DDP (Advanced)
+
+For 4 GPUs, create `train_cifar10_4gpu.sh`:
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=pixnerd_cifar10_4gpu
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=4  # MUST match number of GPUs
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:4
 #SBATCH --time=48:00:00
@@ -113,19 +150,24 @@ module load python/3.10
 module load cuda/11.8
 
 # Activate environment
-cd /pscratch/sd/d/dpark1/Claude/PixNerd
+cd /pscratch/sd/d/dpark1/Claude/pixnerdme
 source venv/bin/activate
 
 # Create logs directory
 mkdir -p logs
 
-# Run training
-python main.py fit -c configs_c2i/cifar_repa_v1.yaml \
-    --trainer.devices=4 \
-    --trainer.default_root_dir=/pscratch/sd/d/dpark1/Claude/PixNerd/workdirs
+# Run training with SLURM launcher
+# Lightning auto-detects SLURM and uses correct number of devices
+srun python main.py fit -c configs_c2i/cifar_basic_v1.yaml
 
 echo "Training completed at $(date)"
 ```
+
+**Key Points**:
+- `--ntasks-per-node` MUST equal number of GPUs for DDP
+- Use `srun` (not just `python`) for multi-GPU
+- Lightning auto-detects SLURM configuration
+- Don't add `--trainer.devices=4` on command line
 
 Submit the job:
 
@@ -153,7 +195,7 @@ watch -n 1 nvidia-smi
 **Solution**: Make sure you're in the correct directory:
 ```bash
 cd /pscratch/sd/d/dpark1/Claude/PixNerd
-ls configs_c2i/cifar_repa_v1.yaml  # Should exist
+ls configs_c2i/cifar_basic_v1.yaml  # Should exist
 ```
 
 ### Issue: Module not found (torch, lightning, etc.)
@@ -187,13 +229,41 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 ```
 
+### Issue: SLURM devices mismatch error
+
+**Error**: `ValueError: You set devices=4 in Lightning, but the number of tasks per node configured in SLURM --ntasks-per-node=1 does not match`
+
+**Cause**: Mismatch between Lightning device config and SLURM task configuration.
+
+**Solutions**:
+
+**Option 1** - Use single GPU (simplest):
+```bash
+#SBATCH --gres=gpu:1
+#SBATCH --ntasks-per-node=1
+
+# Don't specify --trainer.devices
+python main.py fit -c configs_c2i/cifar_basic_v1.yaml
+```
+
+**Option 2** - Use multi-GPU with correct SLURM setup:
+```bash
+#SBATCH --gres=gpu:4
+#SBATCH --ntasks-per-node=4  # MUST match GPU count
+
+# Use srun for multi-GPU
+srun python main.py fit -c configs_c2i/cifar_basic_v1.yaml
+```
+
+**Key rule**: `ntasks-per-node` MUST equal number of GPUs when using Lightning DDP with SLURM.
+
 ## Cluster-Specific Configurations
 
 You may want to modify the config for cluster environment:
 
 ```bash
 # Edit the config to use cluster paths
-nano configs_c2i/cifar_repa_v1.yaml
+nano configs_c2i/cifar_basic_v1.yaml
 ```
 
 Update these paths:
@@ -214,7 +284,7 @@ data:
 pwd  # Should show: /pscratch/sd/d/dpark1/Claude/PixNerd
 
 # Check all CIFAR-10 files exist
-ls -la configs_c2i/cifar_repa_v1.yaml
+ls -la configs_c2i/cifar_basic_v1.yaml
 ls -la src/data/dataset/cifar10.py
 ls -la test_cifar10.py
 ls -la CIFAR10_README.md
@@ -223,5 +293,5 @@ ls -la CIFAR10_README.md
 python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
 
 # Test config file parsing
-python -c "import yaml; yaml.safe_load(open('configs_c2i/cifar_repa_v1.yaml')); print('✓ Config valid')"
+python -c "import yaml; yaml.safe_load(open('configs_c2i/cifar_basic_v1.yaml')); print('✓ Config valid')"
 ```
