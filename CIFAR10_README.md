@@ -50,10 +50,12 @@ The configuration file `configs_c2i/cifar_basic_v1.yaml` includes:
 
 - **Model Architecture**: PixNerDiT with 4×4 patches (8×8 patch grid)
 - **Diffusion Trainer**: FlowMatchingTrainer (basic flow matching without auxiliary encoder)
-- **Training**: 200,000 steps with validation every 20,000 steps
+- **Training**: 200,000 steps with validation every 50 epochs (~19,500 steps)
 - **Optimizer**: AdamW with lr=1e-4
 - **Augmentation**: Random crop with padding + random horizontal flip
 - **Checkpoints**: Saved every 5,000 steps to `./workdirs/`
+
+**Note**: With 50K training images and batch size 128, each epoch is ~390 steps. Validation runs every 50 epochs for efficiency.
 
 **Note**: This uses basic flow matching. For REPA training with DINOv2 auxiliary encoder (better quality but requires additional setup), see the Advanced Training section below.
 
@@ -191,8 +193,8 @@ denoiser:
 
 ```yaml
 trainer:
-  max_steps: 300000          # Train longer
-  val_check_interval: 10000  # Validate more frequently
+  max_steps: 300000            # Train longer
+  check_val_every_n_epoch: 25  # Validate more frequently (every 25 epochs ≈ 9,750 steps)
 ```
 
 ### Change Sampling Parameters
@@ -241,6 +243,10 @@ trainer:
 ### Configuration Errors
 
 If you get errors about missing encoder or DINOv2, make sure you're using `cifar_basic_v1.yaml` (not `cifar_repa_v1.yaml` which requires additional DINOv2 setup).
+
+### Validation Interval Errors
+
+If you get `val_check_interval should be an integer` errors, this is due to Lightning version compatibility. The config uses `check_val_every_n_epoch` (epoch-based validation) which is more stable across Lightning versions than step-based `val_check_interval`.
 
 ## Citation
 
