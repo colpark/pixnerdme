@@ -38,30 +38,32 @@ The CIFAR-10 dataset will be automatically downloaded on first run to `./data/ci
 
 ```bash
 # Single GPU training
-python main.py fit -c configs_c2i/cifar_repa_v1.yaml
+python main.py fit -c configs_c2i/cifar_basic_v1.yaml
 
 # Multi-GPU training (DDP)
-python main.py fit -c configs_c2i/cifar_repa_v1.yaml --trainer.devices=4
+python main.py fit -c configs_c2i/cifar_basic_v1.yaml --trainer.devices=4
 ```
 
 ### Training Configuration
 
-The configuration file `configs_c2i/cifar_repa_v1.yaml` includes:
+The configuration file `configs_c2i/cifar_basic_v1.yaml` includes:
 
 - **Model Architecture**: PixNerDiT with 4×4 patches (8×8 patch grid)
-- **Auxiliary Encoder**: DINOv2-base for feature alignment
+- **Diffusion Trainer**: FlowMatchingTrainer (basic flow matching without auxiliary encoder)
 - **Training**: 200,000 steps with validation every 20,000 steps
 - **Optimizer**: AdamW with lr=1e-4
 - **Augmentation**: Random crop with padding + random horizontal flip
 - **Checkpoints**: Saved every 5,000 steps to `./workdirs/`
+
+**Note**: This uses basic flow matching. For REPA training with DINOv2 auxiliary encoder (better quality but requires additional setup), see the Advanced Training section below.
 
 ## Inference
 
 ### Generate Images from Random Noise
 
 ```bash
-python main.py predict -c configs_c2i/cifar_repa_v1.yaml \
-    --ckpt_path ./workdirs/cifar10_repa_pixnerd_base/checkpoints/last.ckpt
+python main.py predict -c configs_c2i/cifar_basic_v1.yaml \
+    --ckpt_path ./workdirs/cifar10_basic_pixnerd_base/checkpoints/last.ckpt
 ```
 
 This generates 10,000 images (1,000 per class) for evaluation.
@@ -100,7 +102,7 @@ NerfFinalLayer: [B, 64, 3] → unpatch → [B, 3, 32, 32]
 
 1. **PixelAE**: Identity mapping (no VAE compression)
 2. **NerfEmbedder**: Frequency-based positional encoding for high-frequency modeling
-3. **REPATrainer**: Flow matching with DINOv2 feature alignment
+3. **FlowMatchingTrainer**: Basic flow matching diffusion training
 4. **EulerSampler**: ODE-based sampling with Classifier-Free Guidance
 
 ## Monitoring
@@ -108,9 +110,9 @@ NerfFinalLayer: [B, 64, 3] → unpatch → [B, 3, 32, 32]
 Training progress is logged to Weights & Biases:
 
 - **Project**: `pixnerd_cifar10`
-- **Run Name**: `cifar10_repa_pixnerd_base`
+- **Run Name**: `cifar10_basic_pixnerd_base`
 
-Validation images are saved to `./workdirs/cifar10_repa_pixnerd_base/val/`
+Validation images are saved to `./workdirs/cifar10_basic_pixnerd_base/val/`
 
 ## Expected Performance
 
@@ -124,11 +126,59 @@ Target metrics (after full training):
 - **FID**: < 10.0 (competitive with other pixel-space diffusion models)
 - **Inception Score**: > 8.0
 
+## Advanced Training with REPA (Optional)
+
+For improved quality using REPA training with DINOv2 auxiliary encoder, you need to first download the DINOv2 model locally:
+
+### Step 1: Download DINOv2
+
+```bash
+# Create torch hub directory
+mkdir -p torch_hub
+cd torch_hub
+
+# Clone DINOv2 repository
+git clone https://github.com/facebookresearch/dinov2.git
+cd dinov2
+
+# The model will be in: torch_hub/dinov2/
+```
+
+### Step 2: Create REPA Config
+
+Create `configs_c2i/cifar_repa_v1.yaml` based on `cifar_basic_v1.yaml`, but replace the diffusion_trainer section:
+
+```yaml
+diffusion_trainer:
+  class_path: src.diffusion.flow_matching.training_repa.REPATrainer
+  init_args:
+    lognorm_t: true
+    timeshift: 1.0
+    feat_loss_weight: 0.5
+    encoder:
+      class_path: src.models.encoder.DINOv2
+      init_args:
+        weight_path: /path/to/torch_hub/dinov2/dinov2_vitb14  # Update this path
+    align_layer: 8
+    proj_denoiser_dim: 384
+    proj_hidden_dim: 384
+    proj_encoder_dim: 768
+    scheduler: &scheduler src.diffusion.flow_matching.scheduling.LinearScheduler
+```
+
+### Step 3: Train with REPA
+
+```bash
+python main.py fit -c configs_c2i/cifar_repa_v1.yaml
+```
+
+REPA training uses auxiliary DINOv2 encoder features to improve high-frequency detail generation, potentially improving FID by 10-20%.
+
 ## Customization
 
 ### Adjust Model Size
 
-Edit `configs_c2i/cifar_repa_v1.yaml`:
+Edit `configs_c2i/cifar_basic_v1.yaml`:
 
 ```yaml
 denoiser:
@@ -159,7 +209,7 @@ diffusion_sampler:
 ```
 PixNerd/
 ├── configs_c2i/
-│   └── cifar_repa_v1.yaml           # CIFAR-10 training config
+│   └── cifar_basic_v1.yaml          # CIFAR-10 training config (basic)
 ├── src/
 │   └── data/
 │       └── dataset/
@@ -167,7 +217,7 @@ PixNerd/
 ├── data/
 │   └── cifar10/                     # Auto-downloaded CIFAR-10 data
 └── workdirs/
-    └── cifar10_repa_pixnerd_base/  # Checkpoints and logs
+    └── cifar10_basic_pixnerd_base/  # Checkpoints and logs
 ```
 
 ## Troubleshooting
@@ -188,13 +238,9 @@ trainer:
   precision: bf16-mixed
 ```
 
-### DINOv2 Download Issues
+### Configuration Errors
 
-If automatic download fails, manually download:
-```python
-from transformers import AutoModel
-model = AutoModel.from_pretrained("facebook/dinov2-base")
-```
+If you get errors about missing encoder or DINOv2, make sure you're using `cifar_basic_v1.yaml` (not `cifar_repa_v1.yaml` which requires additional DINOv2 setup).
 
 ## Citation
 
