@@ -97,6 +97,8 @@ def list_checkpoints(workdir="./workdirs/exp_cifar10_basic_pixnerd_base/val"):
 
 def main():
     parser = argparse.ArgumentParser(description='Visualize generated CIFAR-10 images')
+    parser.add_argument('npz_file', type=str, nargs='?', default=None,
+                       help='Direct path to .npz file (e.g., output.npz or generated_multires/128x128/val/predict/output.npz)')
     parser.add_argument('--step', type=int, default=None,
                        help='Training step to visualize (e.g., 19500). If not specified, uses latest.')
     parser.add_argument('--num-images', type=int, default=100,
@@ -121,7 +123,14 @@ def main():
         return
 
     # Determine which checkpoint to load
-    if args.step is not None:
+    if args.npz_file is not None:
+        # Direct npz file path provided
+        npz_path = Path(args.npz_file)
+        if not npz_path.exists():
+            print(f"Error: File not found: {npz_path}")
+            return
+        print(f"Loading from direct path: {npz_path}")
+    elif args.step is not None:
         npz_path = Path(args.workdir) / f"iter_{args.step}" / "output.npz"
         if not npz_path.exists():
             print(f"Error: Checkpoint not found at step {args.step}")
