@@ -87,6 +87,31 @@ python test_cifar10.py
 
 **Documentation:** See [CIFAR10_README.md](CIFAR10_README.md) for detailed instructions.
 
+### Multi-Resolution Generation (Following Paper Approach)
+
+**PixNerd's Key Feature**: Train ONE model, generate at MULTIPLE resolutions (32×32, 64×64, 128×128+).
+
+```bash
+# Train multi-resolution model at 128×128
+python main.py fit -c configs_c2i/cifar_multires_128.yaml
+
+# Generate at multiple resolutions with SAME checkpoint
+python generate_multires.py --ckpt <checkpoint> --multi
+
+# Generates:
+# - cifar10_32x32.npz
+# - cifar10_64x64.npz
+# - cifar10_128x128.npz
+```
+
+**How It Works**: Neural field positional encoding with normalized [0,1] coordinates enables resolution flexibility - train once, generate at any resolution!
+
+**Documentation**:
+- [MULTIRES_README.md](MULTIRES_README.md) - Complete documentation
+- [QUICKSTART_MULTIRES.md](QUICKSTART_MULTIRES.md) - Quick reference
+
+**Alternative**: For cascaded super-resolution (2-stage pipeline), see [CIFAR10_SR_README.md](CIFAR10_SR_README.md)
+
 ## Reference
 ```bibtex
 @article{2507.23268,

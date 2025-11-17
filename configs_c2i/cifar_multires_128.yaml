@@ -1,0 +1,131 @@
+# CIFAR-10 Multi-Resolution Training (Following PixNerd Paper Approach)
+# Train at 128×128, inference at 32×32, 64×64, or 128×128 with SAME checkpoint
+# Single model, resolution-flexible via neural field positional encoding
+
+seed_everything: true
+tags:
+  exp: &exp cifar10_multires_128
+torch_hub_dir: null
+huggingface_cache_dir: null
+
+trainer:
+  default_root_dir: ./workdirs
+  accelerator: auto
+  strategy: auto
+  devices: auto
+  num_nodes: 1
+  precision: bf16-mixed
+  logger:
+      class_path: lightning.pytorch.loggers.WandbLogger
+      init_args:
+        project: pixnerd_cifar10_multires
+        name: *exp
+  num_sanity_val_steps: 0
+  max_steps: 200000  # Same as 32×32 training
+  check_val_every_n_epoch: 50  # ~9,750 steps with batch size 64
+  log_every_n_steps: 50
+  deterministic: null
+  inference_mode: true
+  use_distributed_sampler: false
+  callbacks:
+    - class_path: src.callbacks.model_checkpoint.CheckpointHook
+      init_args:
+        every_n_train_steps: 5000
+        save_top_k: -1
+        save_last: true
+    - class_path: src.callbacks.save_images.SaveImagesHook
+      init_args:
+         save_dir: val
+         save_compressed: true
+
+model:
+  vae:
+    class_path: src.models.autoencoder.pixel.PixelAE
+    init_args:
+       scale: 1.0
+
+  denoiser:
+    class_path: src.models.transformer.pixnerd_c2i.PixNerDiT
+    init_args:
+        in_channels: 3  # Standard RGB (no concatenation)
+        patch_size: 8   # 128/8 = 16×16 patches (same grid size as ImageNet 256/16)
+        num_groups: 8
+        hidden_size: &hidden_dim 768  # Larger than 32×32 model (384), smaller than ImageNet-XL (1152)
+        hidden_size_x: 64
+        num_blocks: 20  # More blocks for higher resolution (vs 12 for 32×32)
+        num_cond_blocks: 16  # More conditional blocks
+        nerf_mlpratio: 2
+        num_classes: &num_classes 10  # CIFAR-10 classes
+
+  conditioner:
+    class_path: src.models.conditioner.class_label.LabelConditioner
+    init_args:
+      num_classes: *num_classes
+
+  diffusion_trainer:
+    class_path: src.diffusion.flow_matching.training.FlowMatchingTrainer
+    init_args:
+      lognorm_t: true
+      timeshift: 1.0
+      scheduler: &scheduler src.diffusion.flow_matching.scheduling.LinearScheduler
+      loss_weight_fn: src.diffusion.flow_matching.training.constant
+
+  diffusion_sampler:
+    class_path: src.diffusion.flow_matching.sampling.EulerSampler
+    init_args:
+      num_steps: 50
+      guidance: 2.5  # Slightly higher for 128×128
+      guidance_interval_min: 0.1
+      guidance_interval_max: 1.0
+      scheduler: *scheduler
+      w_scheduler: null
+      guidance_fn: src.diffusion.base.guidance.simple_guidance_fn
+      step_fn: src.diffusion.flow_matching.sampling.ode_step_fn
+
+  ema_tracker:
+    class_path: src.callbacks.simple_ema.SimpleEMA
+    init_args:
+      decay: 0.9999
+
+  optimizer:
+    class_path: torch.optim.AdamW
+    init_args:
+      lr: 1e-4
+      weight_decay: 0.0
+
+data:
+  train_dataset:
+    class_path: src.data.dataset.cifar10_multires.CIFAR10MultiResDataset
+    init_args:
+      root: ./data/cifar10
+      train: true
+      download: true
+      target_size: 128  # Train at 128×128
+      random_crop: false  # No augmentation for clean multi-res generation
+
+  eval_dataset:
+    class_path: src.data.dataset.cifar10_multires.CIFAR10MultiResRandomDataset
+    init_args:
+      num_classes: 10
+      max_num_instances: 10000
+      target_size: 128  # Validate at 128×128
+      latent_shape:
+        - 3
+        - 128
+        - 128
+
+  pred_dataset:
+    class_path: src.data.dataset.cifar10_multires.CIFAR10MultiResRandomDataset
+    init_args:
+      num_classes: *num_classes
+      max_num_instances: 10000
+      target_size: 128  # Can be changed to 32, 64, or 128 for inference
+      latent_shape:
+        - 3
+        - 128
+        - 128
+
+  train_batch_size: 64  # Smaller batch for 128×128
+  train_num_workers: 4
+  pred_batch_size: 64
+  pred_num_workers: 1
