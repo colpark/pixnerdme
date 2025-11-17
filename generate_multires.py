@@ -16,6 +16,7 @@ Usage:
     python generate_multires.py --ckpt path/to/checkpoint.ckpt --resolution 128 --num-images 100
 """
 import argparse
+import sys
 import torch
 import yaml
 import numpy as np
@@ -146,8 +147,8 @@ def main():
     parser.add_argument('--ckpt', type=str, required=True,
                        help='Path to model checkpoint')
     parser.add_argument('--config', type=str,
-                       default='configs_c2i/cifar_multires_128.yaml',
-                       help='Path to config file')
+                       default=None,
+                       help='Path to config file (auto-detects from checkpoint path if not specified)')
     parser.add_argument('--resolution', type=int, default=128,
                        choices=[32, 64, 96, 128, 160, 192, 224, 256],
                        help='Target resolution (default: 128)')
@@ -164,6 +165,21 @@ def main():
                        help='Generate at multiple resolutions (32, 64, 128) with same checkpoint')
 
     args = parser.parse_args()
+
+    # Auto-detect config from checkpoint path if not specified
+    if args.config is None:
+        if 'exp_cifar10_basic' in args.ckpt:
+            args.config = 'configs_c2i/cifar_basic_v1.yaml'
+            print(f"Auto-detected config: {args.config}")
+        elif 'exp_cifar10_multires' in args.ckpt:
+            args.config = 'configs_c2i/cifar_multires_128.yaml'
+            print(f"Auto-detected config: {args.config}")
+        else:
+            print("ERROR: Could not auto-detect config from checkpoint path.")
+            print("Please specify --config explicitly:")
+            print("  For 32×32 basic model: --config configs_c2i/cifar_basic_v1.yaml")
+            print("  For 128×128 multires model: --config configs_c2i/cifar_multires_128.yaml")
+            sys.exit(1)
 
     # Load model
     model, config = load_model(args.ckpt, args.config)
