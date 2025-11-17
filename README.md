@@ -91,8 +91,22 @@ python test_cifar10.py
 
 **PixNerd's Key Feature**: Train ONE model, generate at MULTIPLE resolutions (32×32, 64×64, 128×128+).
 
+#### Option 1: Use Existing 32×32 Checkpoint (Quick Test)
+
 ```bash
-# Train multi-resolution model at 128×128
+# Use your existing 32×32 checkpoint to generate at 128×128
+python generate_simple.py \
+    --ckpt ./workdirs/exp_cifar10_basic_pixnerd_base/last.ckpt \
+    --resolution 128 \
+    --num-images 10000
+```
+
+Test this first! The neural field should enable higher resolution generation from your 32×32 trained model.
+
+#### Option 2: Train New Model at 128×128 (Best Quality)
+
+```bash
+# Train multi-resolution model at 128×128 for best quality
 python main.py fit -c configs_c2i/cifar_multires_128.yaml
 
 # Generate at multiple resolutions with SAME checkpoint
