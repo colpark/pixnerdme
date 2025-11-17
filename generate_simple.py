@@ -40,10 +40,12 @@ def create_temp_config(base_config_path, resolution, num_images, output_path):
     # Set pred_batch_size
     config['data']['pred_batch_size'] = 64
 
-    # Set prediction output path
+    # Set prediction output path and override multi-GPU settings for inference
     if 'trainer' not in config:
         config['trainer'] = {}
     config['trainer']['default_root_dir'] = str(output_path)
+    config['trainer']['devices'] = 1  # Force single GPU for inference
+    config['trainer']['num_nodes'] = 1  # Force single node
 
     # Save temporary config
     temp_config = Path(f'temp_gen_{resolution}.yaml')
