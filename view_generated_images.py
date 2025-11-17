@@ -4,6 +4,8 @@ Visualize generated CIFAR-10 images from .npz files
 Usage: python view_generated_images.py [--step STEP] [--num-images N]
 """
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend for cluster
 import matplotlib.pyplot as plt
 import argparse
 import os
@@ -55,8 +57,19 @@ def visualize_grid(images, num_images=100, grid_size=10, save_path=None, apply_c
     plt.tight_layout()
 
     if save_path:
+        save_path = Path(save_path)
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        print(f"Saved visualization to: {save_path}")
+        plt.close(fig)  # Close to free memory
+
+        # Verify file was created
+        if save_path.exists():
+            size_mb = save_path.stat().st_size / (1024 * 1024)
+            abs_path = save_path.resolve()
+            print(f"\n✓ Saved visualization to: {save_path}")
+            print(f"  Absolute path: {abs_path}")
+            print(f"  File size: {size_mb:.2f} MB")
+        else:
+            print(f"\n✗ ERROR: File was not created: {save_path}")
     else:
         plt.show()
 
